@@ -4,4 +4,4 @@ RUN conda install -c conda-forge matplotlib scikit-learn
 RUN conda install -c conda-forge ipywidgets
 WORKDIR /home/users/nmiolane/
 USER root
-CMD ["/home/user/miniconda/envs/py36/bin/jupyter", "notebook", "--allow-root", "--ip=0.0.0.0"]
+CMD ["/home/user/miniconda/envs/py36/bin/jupyter", "notebook", "--allow-root", "--ip=0.0.0.0", "--NotebookApp.iopub_data_rate_limit=1.0e10"]
