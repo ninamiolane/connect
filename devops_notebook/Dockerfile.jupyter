@@ -1,0 +1,9 @@
+FROM anibali/pytorch:cuda-9.0
+RUN conda install jupyter
+RUN conda install -c conda-forge matplotlib pandas scikit-learn
+RUN conda install -c conda-forge ipywidgets
+RUN conda install -c flatiron -c conda-forge mountainlab mountainlab_pytools
+
+WORKDIR /home/nina/
+USER root
+CMD ["/home/user/miniconda/envs/py36/bin/jupyter", "notebook", "--allow-root", "--ip=0.0.0.0", "--NotebookApp.iopub_data_rate_limit=1.0e10"]
