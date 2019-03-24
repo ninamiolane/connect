@@ -36,3 +36,7 @@ Saturation / flateness are:
 # TODO(nina): Investigate our to compute the correlation suited for signals
 
 # TODO(nina): Too conservative for peaks (some are missing?)? amplitude values?
+
+NVT:
+    # QUESTION: Why is there less time steps than raw data? len(nvt_raw['TimeStamp']) != len(nvt_raw['extracted_x'])
+

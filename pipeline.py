@@ -31,36 +31,71 @@ N_PCA_COMPONENTS = 10
 N_CLUSTERS = 3
 
 
-class LoadSignals(luigi.Task):
+class LoadData(luigi.Task):
     """
     Load NCS from all electrodes,
-    Extract signals,
-    Concatenate in an array of shape: n_signals x n_electrodes.
+    Extract signals:
+    - Array of shape: n_electrodes, n_time_steps.
+
+    Extract 2D positions:
+    - Array of shape: 2, n_time_steps
     """
-    output_path = os.path.join(OUTPUT_DIR, 'load_signals.npy')
+    output_path = os.path.join(OUTPUT_DIR, 'load_data.npy')
 
     def requires(self):
         pass
 
     def run(self):
         signals = []
+        positions = []
+
+        filepath = os.path.join(DATA_DIR, 'VT1.nvt')
+        nvt = nrtk.io.load_nvt(filepath)
+        nvt_stamps = nvt['TimeStamp']
+
+        filepath = os.path.join(DATA_DIR, 'CSC1.ncs')
+        ncs = nrtk.io.load_nvt(filepath)
+        ncs_stamps = ncs['TimeStamp']
+
+        nvt_idx, ncs_idx = nrtk.io.align_timestamps(
+            nvt_stamps, ncs_stamps)
+
+        # Extract positions from nvt
+        pxl_to_cm_x = 1  # placeholder
+        pxl_to_cm_y = 1  # placeholder
+        x_cm = nvt['extracted_x'] / pxl_to_cm_x
+        y_cm = nvt['extracted_y'] / pxl_to_cm_y
+
+        x_cm = x_cm[nvt_idx]
+        y_cm = y_cm[nvt_idx]
+
+        positions = np.vstack([x_cm, y_cm])
+
+        # Extract signals from ncs's
         for electrode_id in range(N_ELECTRODES):
             filename = 'CSC{}.ncs'.format(electrode_id + 1)
             filepath = os.path.join(DATA_DIR, filename)
 
             logging.info('Loading %s...' % filepath)
-            raw = nrtk.io.load_ncs(filepath)
+            electrode_ncs = nrtk.io.load_ncs(filepath)
 
-            electrode_signal = raw['Samples'].ravel()
-            sf = raw['SampleFreq'][0]
+            electrode_signal = electrode_ncs['Samples'].ravel()
+
+            sf = electrode_ncs['SampleFreq'][0]
             assert sf == SF
+
+            electrode_signal = electrode_signal[ncs_idx]
+
             signals.append(electrode_signal)
 
         signals = np.array(signals)
         n_electrodes, n_time_steps = signals.shape
         assert n_electrodes == N_ELECTRODES
 
-        np.save(self.output().path, signals)
+        data = {
+            'positions': positions,
+            'signals': signals}
+        np.save(self.output().path, data)
 
     def output(self):
         return luigi.LocalTarget(self.output_path)
@@ -76,11 +111,12 @@ class FilterSignals(luigi.Task):
     output_path = os.path.join(OUTPUT_DIR, 'filter_signals.npy')
 
     def requires(self):
-        return {'load_signals': LoadSignals()}
+        return {'load_data': LoadData()}
 
     def run(self):
-        signals_path = self.input()['load_signals'].path
-        signals = np.load(signals_path)
+        data_path = self.input()['load_data'].path
+        data = np.load(data_path).item()
+        signals = data['signals']
 
         filtered_signals, _, _ = nrtk.filter.cheby(signals)
         filtered_signals, _ = nrtk.filter.firwin(filtered_signals)
