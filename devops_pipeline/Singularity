@@ -11,13 +11,14 @@ From: ../../simgs/sommet_base.simg
 
 %post
     apt-get update
-    pip3 install luigi \
-                 numpy \
-                 scikit-learn \
-                 torch \
-                 torchvision \
-                 jinja2 \
-                 joblib
+    pip3 install --upgrade luigi \
+                           numpy>=1.12.0 \
+                           pandas \
+                           scikit-learn \
+                           torch \
+                           torchvision \
+                           jinja2 \
+                           joblib
 
 %runscript
     exec /usr/bin/python3 -u pipeline.py

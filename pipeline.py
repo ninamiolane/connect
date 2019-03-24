@@ -1,56 +1,124 @@
-"""Data processing pipeline."""
+"""NeuroRoots pipeline."""
 
+from joblib import Parallel, delayed
 import logging
 import luigi
 import matplotlib
 matplotlib.use('Agg')  # NOQA
 import os
-import jinja2
+import warnings
+warnings.filterwarnings('ignore')  # NOQA
 
-HOME_DIR = '/home/nina/code/sommet'
-DATA_DIR = os.path.join('/neuro/recordings', '2018-05-31_15-43-39')
+import numpy as np
+
+import nrtk.filter
+import nrtk.io
+import nrtk.sort
+import nrtk.vis
 
 
-OUTPUT_DIR = os.path.join(HOME_DIR, 'output0206')
-TRAIN_DIR = os.path.join(OUTPUT_DIR, 'training')
-REPORT_DIR = os.path.join(OUTPUT_DIR, 'report')
+HOME_DIR = '/scratch/users/nmiolane/sommet/'
+DATA_DIR = '/neuro/recordings/2018-05-31_15-43-39'
+
+OUTPUT_DIR = os.path.join(HOME_DIR, 'output')
 
 DEBUG = False
 
-LOADER = jinja2.FileSystemLoader('./templates/')
-TEMPLATE_ENVIRONMENT = jinja2.Environment(
-    autoescape=False,
-    loader=LOADER)
-TEMPLATE_NAME = 'report.jinja2'
+N_ELECTRODES = 32
+SF = 32000
 
 
-class Filter(luigi.Task):
-    file_list_path = './datasets/openneuro_files.txt'
-    target_dir = os.path.join(NEURO_DIR, 't1scans')
+class LoadSignals(luigi.Task):
+    """
+    Load NCS from all electrodes,
+    Extract signals,
+    Concatenate in an array of shape: n_signals x n_electrodes.
+    """
+    output_path = os.path.join(OUTPUT_DIR, 'load_signals.npy')
 
     def requires(self):
         pass
 
     def run(self):
-        with open(self.file_list_path) as f:
-            all_files = f.readlines()
+        signals = []
+        for electrode_id in range(N_ELECTRODES):
+            filename = 'CSC{}.ncs'.format(electrode_id + 1)
+            filepath = os.path.join(DATA_DIR, filename)
 
-        Parallel(n_jobs=10)(delayed(self.dl_file)(f) for f in all_files)
+            logging.info('Loading %s...' % filepath)
+            raw = nrtk.io.load_ncs(filepath)
+
+            electrode_signal = raw['Samples'].ravel()
+            sf = raw['SampleFreq'][0]
+            assert sf == SF
+            signals.append(electrode_signal)
+
+        signals = np.array(signals)
+        n_electrodes, n_time_steps = signals.shape
+        assert n_electrodes == N_ELECTRODES
+
+        np.save(self.output().path, signals)
 
     def output(self):
-        return luigi.LocalTarget(self.target_dir)
+        return luigi.LocalTarget(self.output_path)
+
+
+class FilterSignals(luigi.Task):
+    """
+    Filter before removing bad signals, as filtering does not work with Nans.
+    - Extreme amplitude: mouse bumping against a wall
+    - Flat regions: saturation of the device
+    """
+    output_path = os.path.join(OUTPUT_DIR, 'filter_signals.npy')
+
+    def requires(self):
+        return {'load_signals': LoadSignals()}
+
+    def run(self):
+        signals_path = self.input()['load_signals'].path
+        signals = np.load(signals_path)
+
+        filtered_signals, _, _ = nrtk.filter.cheby(signals)
+        filtered_signals, _ = nrtk.filter.firwin(filtered_signals)
+
+        filtered_signals = nrtk.filter.remove_extreme_amplitudes(
+            filtered_signals)
+        filtered_signals = nrtk.filter.remove_flat_and_normalize(
+            signals, filtered_signals)
+
+        np.save(self.output().path, filtered_signals)
+
+    def output(self):
+        return luigi.LocalTarget(self.output_path)
+
+
+class ExtractSpikes(luigi.Task):
+    output_path = os.path.join(OUTPUT_DIR, 'extract_spikes.npy')
+
+    def requires(self):
+        return {'filter_signals': FilterSignals()}
+
+    def run(self):
+        signals_path = self.input()['filter_signals'].path
+        signals = np.load(signals_path)
+
+        peaks = nrtk.sort.extract_peaks(signals)
+        np.save(self.output().path, peaks)
+
+    def output(self):
+        return luigi.LocalTarget(self.output_path)
 
 
 class RunAll(luigi.Task):
     def requires(self):
-        return {'filter': Filter()}
+        return {'extract_spikes': ExtractSpikes()}
 
     def output(self):
         return luigi.LocalTarget('dummy')
 
 
 def init():
-    for directory in [OUTPUT_DIR, TRAIN_DIR, REPORT_DIR]:
+    for directory in [OUTPUT_DIR]:
         if not os.path.isdir(directory):
             os.mkdir(directory)
             os.chmod(directory, 0o777)
