@@ -1,6 +1,5 @@
 """NeuroRoots pipeline."""
 
-from joblib import Parallel, delayed
 import logging
 import luigi
 import matplotlib
@@ -10,6 +9,8 @@ import warnings
 warnings.filterwarnings('ignore')  # NOQA
 
 import numpy as np
+from sklearn.cluster import KMeans
+from sklearn.decomposition import PCA
 
 import nrtk.filter
 import nrtk.io
@@ -26,6 +27,8 @@ DEBUG = False
 
 N_ELECTRODES = 32
 SF = 32000
+N_PCA_COMPONENTS = 10
+N_CLUSTERS = 3
 
 
 class LoadSignals(luigi.Task):
@@ -69,6 +72,7 @@ class FilterSignals(luigi.Task):
     - Extreme amplitude: mouse bumping against a wall
     - Flat regions: saturation of the device
     """
+    # TODO(nina): Parallel with joblib
     output_path = os.path.join(OUTPUT_DIR, 'filter_signals.npy')
 
     def requires(self):
@@ -95,6 +99,7 @@ class FilterSignals(luigi.Task):
 class ExtractSpikes(luigi.Task):
     output_path = os.path.join(OUTPUT_DIR, 'extract_spikes.npy')
 
+    # TODO(nina): Parallel with joblib
     def requires(self):
         return {'filter_signals': FilterSignals()}
 
@@ -102,8 +107,32 @@ class ExtractSpikes(luigi.Task):
         signals_path = self.input()['filter_signals'].path
         signals = np.load(signals_path)
 
-        peaks = nrtk.sort.extract_peaks(signals)
-        np.save(self.output().path, peaks)
+        peaks_ids = nrtk.sort.extract_peaks_ids(signals)
+        peaks = nrtk.sort.extract_peaks(signals, peaks_ids)
+
+        pca_kmeans = {}
+
+        n_electrodes, _ = signals.shape
+
+        for electrode_id in range(n_electrodes):
+            data = peaks[electrode_id]
+
+            pca = PCA(n_components=N_PCA_COMPONENTS)
+            projected_data = pca.fit_transform(data)
+
+            kmeans = KMeans(
+                init='k-means++', n_clusters=N_CLUSTERS,
+                n_init=10, random_state=1990)
+            kmeans_res = kmeans.fit(projected_data)
+
+            pca_kmeans[electrode_id] = {
+                'data': data,
+                'projected_data': projected_data,
+                'explained_variance': pca.explained_variance_ratio_,
+                'assignments': kmeans_res.labels_,
+                'centers': kmeans_res.cluster_centers_}
+
+        np.save(self.output().path, pca_kmeans)
 
     def output(self):
         return luigi.LocalTarget(self.output_path)

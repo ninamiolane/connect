@@ -66,9 +66,8 @@ def peaks_mask(signals, threshold_std=SPIKE_THRESHOLD_STD):
     return peaks_mask
 
 
-def extract_peaks(signals, threshold_std=SPIKE_THRESHOLD_STD):
+def extract_peaks_ids(signals, threshold_std=SPIKE_THRESHOLD_STD):
     """
-    Finds peaks in our data
     Code based from Abdul's code &
     https://www.frontiersin.org/articles/10.3389/fnins.2016.00537/full
 
@@ -80,15 +79,38 @@ def extract_peaks(signals, threshold_std=SPIKE_THRESHOLD_STD):
     mask = peaks_mask(signals, threshold_std)
 
     peaks = {}
-    for i in range(n_electrodes):
-        peaks_ids = np.where(mask[i])[0]
-        peaks_amplitudes = signals[i, peaks_ids]
+    for electrode_id in range(n_electrodes):
+        peaks_ids = np.where(mask[electrode_id])[0]
         print('Electrode {}. Found {} peaks over {} recorded data.'.format(
-            i+1, len(peaks_ids), n_signals))
+            electrode_id+1, len(peaks_ids), n_signals))
 
-        peaks_i = {
-            'ids': peaks_ids,
-            'amplitudes': peaks_amplitudes}
-        peaks[i] = peaks_i
+        peaks[electrode_id] = peaks_ids
 
+    return peaks
+
+
+def extract_peaks(signals, peak_ids, clip=PEAK_WINDOW_CLIP):
+
+    n_electrodes, n_time_steps = signals.shape
+    peaks = {}
+    for electrode_id in range(n_electrodes):
+        electrode_peak_ids = peak_ids[electrode_id]
+
+        selected_peak_signals = []
+        selected_peak_ids = []  # peak ids that are conserved
+
+        for peak_id in electrode_peak_ids:
+            start_idx = np.int(peak_id - clip / 2)
+            end_idx = np.int(peak_id + clip / 2)
+
+            if (start_idx > 1 and end_idx < n_time_steps):
+                peak_signal = signals[electrode_id, start_idx:end_idx]
+                if np.sum(np.isnan(peak_signal)) == 0:
+                    selected_peak_signals.append(peak_signal)
+                    selected_peak_ids.append(peak_id)
+
+        selected_peak_signals = np.array(selected_peak_signals)
+        assert selected_peak_signals.shape[1] == clip
+
+        peaks[electrode_id] = selected_peak_signals
     return peaks

@@ -121,25 +121,24 @@ def plot_correlation(fig, ax, signals):
     return ax
 
 
-def plot_clustering(ax, clustering, electrode_id=0, sf=SF):
-    cmap = plt.cm.get_cmap('viridis', N_CLUSTERS)    # Discrete color map
-    cmaplist = [cmap(i) for i in range(cmap.N)]
+def plot_pca_kmeans(ax, pca_kmeans_electrode, sf=SF):
+    projected_data = pca_kmeans_electrode['projected_data']
+    assignments = pca_kmeans_electrode['assignments']
+    variances = pca_kmeans_electrode['explained_variance']
 
-    electrode_clustering = clustering[electrode_id]
-    projected_data = electrode_clustering['projected_data']
-    assignments = electrode_clustering['assignments']
-    variances = electrode_clustering['ratio_variance_explained']
+    n_clusters = len(pca_kmeans_electrode['centers'])
+    cmap = plt.cm.get_cmap('viridis', n_clusters)
+    cmaplist = [cmap(i) for i in range(cmap.N)]
 
     colors = [cmaplist[a] for a in assignments]
     ax.scatter(projected_data[:, 0], projected_data[:, 1], c=colors)
-    ax.set_title('Electrode: %d' % electrode_id)
     ax.set_xlabel('PC1 - variance explained: {:.4f}'.format(variances[0]))
     ax.set_ylabel('PC2 - variance explained: {:.4f}'.format(variances[1]))
     return ax
 
 
 def plot_spikes_summary(ax, spikes, sf=SF, title='', color='blue'):
-    time = time_msec(spikes, sf)
+    time = get_time(spikes, sf)
     # Only plot first 20 spikes
     for spike in spikes[:20]:
         ax.plot(time, spike, color='grey')
@@ -159,20 +158,19 @@ def plot_spikes_summary(ax, spikes, sf=SF, title='', color='blue'):
     return ax
 
 
-def plot_centers(ax, clustering, electrode_id=0, center_id=0):
-    electrode_clustering = clustering[electrode_id]
-    n_centers = len(electrode_clustering['centers'])
-    data = electrode_clustering['data']
-    assignments = electrode_clustering['assignments']
+def plot_centers(ax, pca_kmeans_electrode, center_id=0):
+    # TODO(nina): Add firing rate
+    data = pca_kmeans_electrode['data']
+    assignments = pca_kmeans_electrode['assignments']
 
     cluster_mask = assignments == center_id
     cluster_data = data[cluster_mask, :]
-    print('There are %d peaks assigned to cluster %d' % (len(cluster_data), center_id))
 
-    peak_window_size = cluster_data.shape[1]
+    n_clusters = len(pca_kmeans_electrode['centers'])
+    cmap = plt.cm.get_cmap('viridis', n_clusters)
+    cmaplist = [cmap(i) for i in range(cmap.N)]
 
-    time = time_msec(cluster_data)
     ax = plot_spikes_summary(ax, cluster_data, color=cmaplist[center_id])
-    title = 'Electrode {}, Cluster {}'.format(electrode_id, center_id)  #  - Firing Rate: {:.4f}
+    title = 'Cluster {}'.format(center_id)
     ax.set_title(title)
     return ax
