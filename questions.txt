@@ -40,3 +40,5 @@ Saturation / flateness are:
 NVT:
     # QUESTION: Why is there less time steps than raw data? len(nvt_raw['TimeStamp']) != len(nvt_raw['extracted_x'])
 
+# TODO(nina): Look at this https://github.com/vandermeerlab/nept/blob/master/nept/loaders_neuralynx.py
+

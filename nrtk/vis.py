@@ -68,8 +68,8 @@ def plot_signal_electrodes(ax, signal_electrodes, time=None, sf=SF,
 
     chartBox = ax.get_position()
     ax.set_position(
-        [chartBox.x0, chartBox.y0, chartBox.width*0.6, chartBox.height])
-    ax.legend(loc='upper center', bbox_to_anchor=(1.2, 1), shadow=True, ncol=1)
+        [chartBox.x0, chartBox.y0, chartBox.width * 0.6, chartBox.height])
+    ax.legend(loc='upper center', bbox_to_anchor=(1.3, 1), shadow=True, ncol=4)
 
     return ax
 

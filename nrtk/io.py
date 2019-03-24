@@ -115,7 +115,7 @@ def align_timestamps(stamps_1, stamps_2):
     start_lag = (int(stamps_1[0]) - int(stamps_2[0])) / (16000 * 32000)
     end_lag = (int(stamps_1[-1]) - int(stamps_2[-1])) / (16000 * 32000)
 
-    assert np.abs(start_lag) < 1e-4  # i.e. < 0.1ms
-    assert np.abs(end_lag) < 1e-4  # i.e. < 0.1ms
+    assert np.abs(start_lag) < 1e-4, start_lag  # i.e. < 0.1ms
+    assert np.abs(end_lag) < 1e-4, end_lag  # i.e. < 0.1ms
 
     return idx_to_keep_1, idx_to_keep_2

@@ -35,10 +35,13 @@ class LoadData(luigi.Task):
     """
     Load NCS from all electrodes,
     Extract signals:
-    - Array of shape: n_electrodes, n_time_steps.
+    - Array of shape: n_electrodes, 512 * n_time_steps.
 
     Extract 2D positions:
     - Array of shape: 2, n_time_steps
+
+    Note: time resolution for positions and signals are different:
+    There are 512 signal recordings for 1 position.
     """
     output_path = os.path.join(OUTPUT_DIR, 'load_data.npy')
 
@@ -54,7 +57,7 @@ class LoadData(luigi.Task):
         nvt_stamps = nvt['TimeStamp']
 
         filepath = os.path.join(DATA_DIR, 'CSC1.ncs')
-        ncs = nrtk.io.load_nvt(filepath)
+        ncs = nrtk.io.load_ncs(filepath)
         ncs_stamps = ncs['TimeStamp']
 
         nvt_idx, ncs_idx = nrtk.io.align_timestamps(
@@ -79,12 +82,12 @@ class LoadData(luigi.Task):
             logging.info('Loading %s...' % filepath)
             electrode_ncs = nrtk.io.load_ncs(filepath)
 
-            electrode_signal = electrode_ncs['Samples'].ravel()
+            electrode_signal = electrode_ncs['Samples']
+            electrode_signal = electrode_signal[ncs_idx]
+            electrode_signal = electrode_signal.ravel()
 
             sf = electrode_ncs['SampleFreq'][0]
             assert sf == SF
-
-            electrode_signal = electrode_signal[ncs_idx]
 
             signals.append(electrode_signal)
 
