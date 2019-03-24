@@ -19,7 +19,7 @@ import nrtk.vis
 
 
 HOME_DIR = '/scratch/users/nmiolane/sommet/'
-DATA_DIR = '/neuro/recordings/2018-05-31_15-43-39'
+DATA_DIR = '/neuro/recordings/2018-05-18_14-13-11'
 
 OUTPUT_DIR = os.path.join(HOME_DIR, 'output')
 
@@ -28,7 +28,7 @@ DEBUG = False
 N_ELECTRODES = 32
 SF = 32000
 N_PCA_COMPONENTS = 10
-N_CLUSTERS = 3
+N_CLUSTERS = 5
 
 
 class LoadData(luigi.Task):

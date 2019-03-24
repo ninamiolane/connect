@@ -158,19 +158,19 @@ def plot_spikes_summary(ax, spikes, sf=SF, title='', color='blue'):
     return ax
 
 
-def plot_centers(ax, pca_kmeans_electrode, center_id=0):
+def plot_clusters(ax, pca_kmeans_electrode, cluster_id=0):
     # TODO(nina): Add firing rate
     data = pca_kmeans_electrode['data']
     assignments = pca_kmeans_electrode['assignments']
 
-    cluster_mask = assignments == center_id
+    cluster_mask = assignments == cluster_id
     cluster_data = data[cluster_mask, :]
 
     n_clusters = len(pca_kmeans_electrode['centers'])
     cmap = plt.cm.get_cmap('viridis', n_clusters)
     cmaplist = [cmap(i) for i in range(cmap.N)]
 
-    ax = plot_spikes_summary(ax, cluster_data, color=cmaplist[center_id])
-    title = 'Cluster {}'.format(center_id)
+    ax = plot_spikes_summary(ax, cluster_data, color=cmaplist[cluster_id])
+    title = 'Cluster {}'.format(cluster_id)
     ax.set_title(title)
     return ax
